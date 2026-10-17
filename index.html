@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D виртуалды зертхана — Жалын түсі бойынша катиондарды анықтау</title>
+<style>
+:root{
+  --bg:#f4fbfa;--card:#ffffff;--ink:#14363c;--muted:#61797d;--line:#cde3df;
+  --accent:#2f9d8f;--accent2:#58bbaa;--good:#22844c;--bad:#bc4343;--warn:#9a6800;
+  --soft:#e7f6f3;--soft2:#f1fbf9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.45}
+button,select,input,textarea{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.5}
+.wrap{max-width:1450px;margin:auto;padding:14px}
+.hero{background:linear-gradient(135deg,#154b55,#2f9d8f);color:#fff;border-radius:22px;padding:20px;box-shadow:0 12px 28px rgba(19,70,77,.16)}
+.hero h1{margin:0 0 6px;font-size:clamp(22px,3vw,36px)}
+.hero p{margin:5px 0;color:#e8fbf8}
+.topbar{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.lang{display:flex;gap:6px;background:rgba(255,255,255,.13);padding:6px;border-radius:12px}
+.lang button{border:1px solid rgba(255,255,255,.35);background:transparent;color:white;border-radius:8px;padding:8px 11px}
+.lang button.active{background:white;color:#174c54;font-weight:800}
+.badges{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.badge{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.1);font-size:13px}
+.notice{margin-top:12px;background:#fff8e8;border:1px solid #ead19b;color:#765000;border-radius:12px;padding:10px 12px}
+.progress{margin-top:13px;background:#fff;border:1px solid var(--line);border-radius:15px;padding:11px}
+.progressline{height:9px;background:#e8f0ef;border-radius:999px;overflow:hidden;margin-top:7px}
+.progressline>div{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:.2s width}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 4px 15px rgba(18,67,71,.05)}
+.section{margin-top:15px}
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(360px,.65fr);gap:15px}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}}
+.title{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.title h2{margin:0;font-size:20px}
+.num{display:grid;place-items:center;width:34px;height:34px;background:var(--soft);color:#0d7468;border-radius:10px;font-weight:900}
+.btn{border:1px solid #b7d2cd;background:white;color:var(--ink);border-radius:10px;padding:9px 12px;min-height:42px}
+.btn:hover{background:#f2fbf9}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:white}
+.btn.good{background:var(--good);border-color:var(--good);color:white}
+.btn.bad{background:var(--bad);border-color:var(--bad);color:white}
+.row{display:flex;gap:7px;flex-wrap:wrap}
+.sceneShell{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#dcefed;position:relative}
+#scene3d{height:620px;min-height:420px;position:relative}
+#scene3d canvas{display:block;width:100%!important;height:100%!important;touch-action:none}
+.sceneOverlay{position:absolute;left:10px;top:10px;right:10px;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.chip{background:rgba(255,255,255,.9);border:1px solid #bdd7d2;border-radius:999px;padding:6px 10px;font-size:12px;pointer-events:auto}
+.controls{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+@media(max-width:900px){.controls{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.controls{grid-template-columns:1fr}#scene3d{height:470px}}
+.control{border:1px solid var(--line);border-radius:12px;padding:9px;background:white}
+.control label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px}
+input[type=range]{width:100%}
+select,input[type=text],textarea{width:100%;border:1px solid #b9d0cc;border-radius:9px;padding:9px;background:white;color:var(--ink)}
+textarea{min-height:85px;resize:vertical}
+.status{margin-top:9px;border:1px solid var(--line);background:#f7fbfa;border-radius:10px;padding:9px 11px;min-height:42px}
+.status.good{background:#edf8f0;border-color:#a5d5b3;color:#176637}
+.status.bad{background:#fff0f0;border-color:#e2aaaa;color:#913333}
+.status.warn{background:#fff8e9;border-color:#e4cea0;color:#795200}
+.stepbox{background:var(--soft2);border:1px solid var(--line);border-radius:14px;padding:12px}
+.stepnum{font-size:28px;font-weight:900;color:#187d72}
+.small{font-size:13px;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpis div{border:1px solid var(--line);border-radius:11px;padding:9px;text-align:center;background:#fbfefd}
+.kpis b{display:block;font-size:22px}
+.tablewrap{overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border:1px solid var(--line);padding:7px;vertical-align:top}
+th{background:#eaf7f4;text-align:left}
+.obs td:nth-child(1),.obs td:nth-child(2),.obs td:nth-child(3){white-space:nowrap}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:5px;border:1px solid rgba(0,0,0,.18)}
+.desc td:last-child,.desc th:last-child{text-align:center;width:65px}
+.particle{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:center;margin-top:10px}
+.node{border:1px solid var(--line);border-radius:12px;background:#fbfefd;padding:10px;text-align:center;min-height:70px;display:grid;place-items:center}
+.arrow{text-align:center;font-size:24px;color:#2b8e82}
+@media(max-width:760px){.particle{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}}
+.pulse{animation:pulse 1.2s infinite alternate}
+@keyframes pulse{to{transform:translateY(-4px);box-shadow:0 7px 18px rgba(47,157,143,.18)}}
+.hidden{display:none!important}
+.result{border:2px solid #b9d6d1;background:#f7fcfb;border-radius:15px;padding:14px}
+.bigscore{font-size:44px;font-weight:900;line-height:1}
+footer{margin:18px 0 6px;text-align:center;color:var(--muted);font-size:12px}
+@media print{.no-print{display:none!important}.sceneShell{display:none}.hero{background:white;color:black;border:1px solid #aaa;box-shadow:none}.hero p{color:#333}.card{box-shadow:none}body{background:white}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+
+<header class="hero">
+  <div class="topbar">
+    <div>
+      <h1 data-i="title">№3 зертханалық тәжірибе</h1>
+      <p><strong data-i="topic">Li⁺, Na⁺, K⁺, Ca²⁺, Sr²⁺, Ba²⁺, Cu²⁺ катиондарын жалын түсінің өзгеруі бойынша анықтау</strong></p>
+      <p data-i="subtitle">Интерактивті 3D виртуалды зертхана</p>
+    </div>
+    <div class="lang no-print">
+      <button id="kzBtn" class="active" type="button">ҚАЗ</button>
+      <button id="ruBtn" type="button">RU</button>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge" data-i="b1">3D зертхана</span>
+    <span class="badge" data-i="b2">7 виртуалды үлгі</span>
+    <span class="badge" data-i="b3">50–200% масштаб</span>
+    <span class="badge" data-i="b4">10 балл</span>
+  </div>
+</header>
+
+<div class="notice" data-i="virtualOnly">
+  Бұл тек виртуалды симуляция. Ол нақты ашық жалынмен немесе химиялық заттармен жұмыс істеуге арналған нұсқаулық бермейді.
+</div>
+
+<div class="progress no-print">
+  <div style="display:flex;justify-content:space-between;gap:10px"><strong data-i="progress">Орындалу барысы</strong><span id="progressText">0%</span></div>
+  <div class="progressline"><div id="progressFill"></div></div>
+</div>
+
+<section class="card section desc">
+  <div class="title"><span class="num">✓</span><h2 data-i="descriptorsTitle">Бағалау критерийлері мен дескрипторлар</h2></div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th data-i="criterion">Бағалау критерийі</th><th data-i="descriptor">Дескриптор</th><th data-i="points">Балл</th></tr></thead>
+      <tbody>
+        <tr><td data-i="d1c">Виртуалды қауіпсіздікті сақтайды</td><td data-i="d1">Қорғаныш көзілдірігін таңдап, симуляцияны қауіпсіз режимде бастайды.</td><td>1</td></tr>
+        <tr><td data-i="d2c">Үлгілерді зерттейді</td><td data-i="d2">7 виртуалды үлгіні зерттеп, жалын түсін бақылайды.</td><td>2</td></tr>
+        <tr><td data-i="d3c">Жалын түсін анықтайды</td><td data-i="d3">Катиондарға тән түстерді дұрыс таңдайды.</td><td>2</td></tr>
+        <tr><td data-i="d4c">Түс пен катионды сәйкестендіреді</td><td data-i="d4">Li⁺, Na⁺, K⁺, Ca²⁺, Sr²⁺, Ba²⁺, Cu²⁺ катиондарын дұрыс сәйкестендіреді.</td><td>2</td></tr>
+        <tr><td data-i="d5c">Белгісіз үлгіні анықтайды</td><td data-i="d5">Жалын түсіне сүйеніп белгісіз катионды табады.</td><td>1</td></tr>
+        <tr><td data-i="d6c">Құбылысты түсіндіреді</td><td data-i="d6">Түстің пайда болуын электрондардың энергетикалық ауысуымен байланыстырады.</td><td>1</td></tr>
+        <tr><td data-i="d7c">Қорытынды жасайды</td><td data-i="d7">Нәтижеге сүйеніп ғылыми қорытынды тұжырымдайды.</td><td>1</td></tr>
+        <tr><th colspan="2" data-i="total">Барлығы</th><th>10</th></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section grid">
+  <div class="card">
+    <div class="title"><span class="num">1</span><h2 data-i="sceneTitle">3D виртуалды зертхана</h2></div>
+    <div class="sceneShell">
+      <div id="scene3d"></div>
+      <div class="sceneOverlay">
+        <span class="chip" id="sceneMode">3D • READY</span>
+        <span class="chip" id="loopBadge">Loop: CLEAN</span>
+      </div>
+    </div>
+
+    <div class="controls no-print">
+      <div class="control">
+        <label data-i="safety">Виртуалды қауіпсіздік</label>
+        <button id="gogglesBtn" class="btn" type="button" style="width:100%" data-i="wearGoggles">🥽 Көзілдірікті кию</button>
+      </div>
+      <div class="control">
+        <label data-i="burner">Виртуалды жылу көзі</label>
+        <button id="burnerBtn" class="btn" type="button" style="width:100%" data-i="burnerOn">🔥 Қосу</button>
+      </div>
+      <div class="control">
+        <label><span data-i="scale">Масштаб</span>: <strong id="scaleVal">100%</strong></label>
+        <input id="scaleSlider" type="range" min="50" max="200" step="5" value="100">
+      </div>
+      <div class="control">
+        <label data-i="camera">Камера</label>
+        <button id="resetCamera" class="btn" type="button" style="width:100%" data-i="resetCamera">Камераны қалпына келтіру</button>
+      </div>
+    </div>
+
+    <div class="row no-print" style="margin-top:9px">
+      <button id="loadSelectedBtn" class="btn" type="button" data-i="loadSelected">Таңдалған үлгіні виртуалды ілмекке белгілеу</button>
+      <button id="testSelectedBtn" class="btn" type="button" data-i="moveToFlame">Ілмекті жалын аймағына жылжыту</button>
+      <button id="cleanLoopBtn" class="btn" type="button" data-i="resetLoop">Виртуалды ілмекті қалпына келтіру</button>
+    </div>
+
+    <div id="sceneStatus" class="status" aria-live="polite"></div>
+    <p class="small" data-i="sceneHint">3D кеңістікте: банкіге басыңыз; ілмекті ұстап үстел бойымен сүйреңіз; камераны тышқанмен айналдырыңыз. Телефонда бір саусақпен нысанды, бос аймақта камераны басқарыңыз.</p>
+  </div>
+
+  <aside class="card">
+    <div class="title"><span class="num">2</span><h2 data-i="stepsTitle">Қадамдық жұмыс</h2></div>
+    <div class="stepbox">
+      <div class="stepnum" id="stepNum">1/7</div>
+      <strong id="stepTitle"></strong>
+      <p id="stepText"></p>
+    </div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
+    <div class="title"><span class="num">i</span><h2 data-i="selectedTitle">Таңдалған үлгі</h2></div>
+    <div class="kpis">
+      <div><span class="small" data-i="formula">Формула</span><b id="selectedFormula">—</b></div>
+      <div><span class="small" data-i="cation">Катион</span><b id="selectedCation">—</b></div>
+      <div><span class="small" data-i="loopState">Ілмек күйі</span><b id="loopStateText">CLEAN</b></div>
+    </div>
+    <div id="sampleHint" class="status warn" data-i="selectJar">Алдымен 3D банкілердің бірін таңдаңыз.</div>
+  </aside>
+</section>
+
+<section class="card section">
+  <div class="title"><span class="num">3</span><h2 data-i="obsTitle">Бақылау кестесі</h2></div>
+  <p class="small" data-i="obsInfo">Үлгі виртуалды жалын аймағында зерттелгеннен кейін ғана оның жолы белсенді болады.</p>
+  <div class="tablewrap">
+    <table class="obs">
+      <thead><tr>
+        <th>№</th><th data-i="salt">Тұз</th><th data-i="cation">Катион</th><th data-i="observed">Зерттелді</th>
+        <th data-i="observedColor">Бақыланған түс</th><th data-i="identifiedCation">Анықталған катион</th>
+      </tr></thead>
+      <tbody id="obsBody"></tbody>
+    </table>
+  </div>
+  <button id="checkTable" class="btn primary" type="button" style="margin-top:10px" data-i="checkTable">Кестені тексеру</button>
+  <div id="tableStatus" class="status hidden"></div>
+</section>
+
+<section class="card section">
+  <div class="title"><span class="num">4</span><h2 data-i="unknownTitle">«Белгісіз үлгі» зерттеу режимі</h2></div>
+  <p data-i="unknownInfo">Бұл режим 7 үлгі зерттелгеннен кейін ашылады. Белгісіз виртуалды үлгінің формуласын көрмей, жалын түсіне сүйеніп катионды анықтаңыз.</p>
+  <div class="row no-print">
+    <button id="startUnknown" class="btn primary" type="button" disabled data-i="startUnknown">Белгісіз үлгіні бастау</button>
+    <select id="unknownAnswer" style="max-width:260px" disabled></select>
+    <button id="checkUnknown" class="btn" type="button" disabled data-i="check">Тексеру</button>
+  </div>
+  <div id="unknownStatus" class="status"></div>
+</section>
+
+<section class="card section">
+  <div class="title"><span class="num">5</span><h2 data-i="whyTitle">Неліктен жалын түсі өзгереді?</h2></div>
+  <button id="whyBtn" class="btn no-print" type="button" data-i="showExplanation">Бөлшектер деңгейіндегі түсіндірмені көрсету</button>
+  <div id="whyPanel" class="hidden">
+    <div class="particle">
+      <div class="node pulse" data-i="p1">Металл катионы</div><div class="arrow">→</div>
+      <div class="node pulse" data-i="p2">Энергия жұтылады</div><div class="arrow">→</div>
+      <div class="node pulse" data-i="p3">Электрон қозған күйге өтеді</div>
+    </div>
+    <div class="particle">
+      <div class="node pulse" data-i="p4">Электрон төменгі деңгейге қайтады</div><div class="arrow">→</div>
+      <div class="node pulse" data-i="p5">Белгілі толқын ұзындығындағы жарық шығарылады</div><div class="arrow">→</div>
+      <div class="node pulse" data-i="p6">Бақыланатын жалын түсі пайда болады</div>
+    </div>
+    <p data-i="explainText">Әртүрлі металл катиондарының энергетикалық деңгейлері әртүрлі болғандықтан, электрондар төменгі деңгейге қайтқанда әртүрлі түсті жарық шығарады.</p>
+  </div>
+  <div class="q" style="margin-top:12px">
+    <label data-i="explainQuestion">Жалын түсінің пайда болуының дұрыс түсіндірмесін таңдаңыз.</label>
+    <select id="explainAnswer"></select>
+  </div>
+  <button id="checkExplain" class="btn primary" type="button" data-i="check">Тексеру</button>
+  <div id="explainStatus" class="status hidden"></div>
+</section>
+
+<section class="card section">
+  <div class="title"><span class="num">6</span><h2 data-i="conclusionTitle">Қорытынды — 1 балл</h2></div>
+  <div class="q"><label data-i="c1">Металл катиондарын ... арқылы анықтауға болады.</label><input id="conc1" type="text"></div>
+  <div class="q"><label data-i="c2">Әр металл катионы жалынға ... түс береді.</label><input id="conc2" type="text"></div>
+  <div class="q"><label data-i="c3">Бұл құбылыс электрондардың ... байланысты.</label><input id="conc3" type="text"></div>
+  <button id="saveConclusion" class="btn primary" type="button" data-i="save">Сақтау</button>
+  <div id="conclusionStatus" class="status hidden"></div>
+</section>
+
+<section class="card section hidden" id="resultCard">
+  <div class="title"><span class="num">✓</span><h2 data-i="resultTitle">Нәтиже</h2></div>
+  <div class="result">
+    <div class="grid">
+      <div><div class="bigscore"><span id="scoreOut">0</span>/10</div><p id="levelOut"></p></div>
+      <div class="kpis">
+        <div><span class="small" data-i="percent">Пайыз</span><b id="percentOut">0%</b></div>
+        <div><span class="small" data-i="testedSamples">Зерттелген</span><b id="testedOut">0/7</b></div>
+        <div><span class="small" data-i="errors">Қателер</span><b id="errorsOut">0</b></div>
+      </div>
+    </div>
+    <div id="recommendation"></div>
+  </div>
+  <div class="row no-print" style="margin-top:10px">
+    <button id="showErrors" class="btn primary" type="button" data-i="showErrors">Қателерді көру</button>
+    <button id="downloadResult" class="btn" type="button" data-i="download">Нәтижені жүктеу</button>
+    <button id="printResult" class="btn" type="button" data-i="print">Басып шығару</button>
+    <button id="restart" class="btn bad" type="button" data-i="restart">Қайта орындау</button>
+  </div>
+  <div id="errorsBox" class="status hidden"></div>
+</section>
+
+<section class="card section">
+  <div class="title"><span class="num">7</span><h2 data-i="finishTitle">Жұмысты аяқтау</h2></div>
+  <p data-i="finishInfo">Барлық бөлімді орындағаннан кейін жалпы 10 балдық нәтижені есептеңіз.</p>
+  <button id="finishLab" class="btn good" type="button" data-i="finish">Зертханалық жұмысты аяқтау</button>
+</section>
+
+<footer data-i="footer">
+  3D нысандар Three.js көмегімен процедуралық түрде жасалған; ақылы 3D ассеттер қолданылмайды. Бұл тек виртуалды оқу симуляциясы.
+</footer>
+</div>
+
+<script type="importmap">
+{"imports":{
+"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+
+const T={
+kz:{
+title:'№3 зертханалық тәжірибе',
+topic:'Li⁺, Na⁺, K⁺, Ca²⁺, Sr²⁺, Ba²⁺, Cu²⁺ катиондарын жалын түсінің өзгеруі бойынша анықтау',
+subtitle:'Интерактивті 3D виртуалды зертхана',
+b1:'3D зертхана',b2:'7 виртуалды үлгі',b3:'50–200% масштаб',b4:'10 балл',
+virtualOnly:'Бұл тек виртуалды симуляция. Ол нақты ашық жалынмен немесе химиялық заттармен жұмыс істеуге арналған нұсқаулық бермейді.',
+progress:'Орындалу барысы',descriptorsTitle:'Бағалау критерийлері мен дескрипторлар',criterion:'Бағалау критерийі',descriptor:'Дескриптор',points:'Балл',
+d1c:'Виртуалды қауіпсіздікті сақтайды',d1:'Қорғаныш көзілдірігін таңдап, симуляцияны қауіпсіз режимде бастайды.',
+d2c:'Үлгілерді зерттейді',d2:'7 виртуалды үлгіні зерттеп, жалын түсін бақылайды.',
+d3c:'Жалын түсін анықтайды',d3:'Катиондарға тән түстерді дұрыс таңдайды.',
+d4c:'Түс пен катионды сәйкестендіреді',d4:'Li⁺, Na⁺, K⁺, Ca²⁺, Sr²⁺, Ba²⁺, Cu²⁺ катиондарын дұрыс сәйкестендіреді.',
+d5c:'Белгісіз үлгіні анықтайды',d5:'Жалын түсіне сүйеніп белгісіз катионды табады.',
+d6c:'Құбылысты түсіндіреді',d6:'Түстің пайда болуын электрондардың энергетикалық ауысуымен байланыстырады.',
+d7c:'Қорытынды жасайды',d7:'Нәтижеге сүйеніп ғылыми қорытынды тұжырымдайды.',total:'Барлығы',
+sceneTitle:'3D виртуалды зертхана',safety:'Виртуалды қауіпсіздік',wearGoggles:'🥽 Көзілдірікті кию',gogglesOn:'🥽 Көзілдірік ✓',
+burner:'Виртуалды жылу көзі',burnerOn:'🔥 Қосу',burnerOff:'⏹ Өшіру',scale:'Масштаб',camera:'Камера',resetCamera:'Камераны қалпына келтіру',
+loadSelected:'Таңдалған үлгіні виртуалды ілмекке белгілеу',moveToFlame:'Ілмекті жалын аймағына жылжыту',resetLoop:'Виртуалды ілмекті қалпына келтіру',
+sceneHint:'3D кеңістікте: банкіге басыңыз; ілмекті ұстап үстел бойымен сүйреңіз; камераны тышқанмен айналдырыңыз. Телефонда бір саусақпен нысанды, бос аймақта камераны басқарыңыз.',
+stepsTitle:'Қадамдық жұмыс',selectedTitle:'Таңдалған үлгі',formula:'Формула',cation:'Катион',loopState:'Ілмек күйі',selectJar:'Алдымен 3D банкілердің бірін таңдаңыз.',
+obsTitle:'Бақылау кестесі',obsInfo:'Үлгі виртуалды жалын аймағында зерттелгеннен кейін ғана оның жолы белсенді болады.',
+salt:'Тұз',observed:'Зерттелді',observedColor:'Бақыланған түс',identifiedCation:'Анықталған катион',checkTable:'Кестені тексеру',
+unknownTitle:'«Белгісіз үлгі» зерттеу режимі',unknownInfo:'Бұл режим 7 үлгі зерттелгеннен кейін ашылады. Белгісіз виртуалды үлгінің формуласын көрмей, жалын түсіне сүйеніп катионды анықтаңыз.',
+startUnknown:'Белгісіз үлгіні бастау',check:'Тексеру',
+whyTitle:'Неліктен жалын түсі өзгереді?',showExplanation:'Бөлшектер деңгейіндегі түсіндірмені көрсету',
+p1:'Металл катионы',p2:'Энергия жұтылады',p3:'Электрон қозған күйге өтеді',p4:'Электрон төменгі деңгейге қайтады',p5:'Белгілі толқын ұзындығындағы жарық шығарылады',p6:'Бақыланатын жалын түсі пайда болады',
+explainText:'Әртүрлі металл катиондарының энергетикалық деңгейлері әртүрлі болғандықтан, электрондар төменгі деңгейге қайтқанда әртүрлі түсті жарық шығарады.',
+explainQuestion:'Жалын түсінің пайда болуының дұрыс түсіндірмесін таңдаңыз.',
+conclusionTitle:'Қорытынды — 1 балл',c1:'Металл катиондарын ... арқылы анықтауға болады.',c2:'Әр металл катионы жалынға ... түс береді.',c3:'Бұл құбылыс электрондардың ... байланысты.',save:'Сақтау',
+resultTitle:'Нәтиже',percent:'Пайыз',testedSamples:'Зерттелген',errors:'Қателер',showErrors:'Қателерді көру',download:'Нәтижені жүктеу',print:'Басып шығару',restart:'Қайта орындау',
+finishTitle:'Жұмысты аяқтау',finishInfo:'Барлық бөлімді орындағаннан кейін жалпы 10 балдық нәтижені есептеңіз.',finish:'Зертханалық жұмысты аяқтау',
+footer:'3D нысандар Three.js көмегімен процедуралық түрде жасалған; ақылы 3D ассеттер қолданылмайды. Бұл тек виртуалды оқу симуляциясы.',
+choose:'— таңдаңыз —',yes:'Иә',no:'Жоқ',ready:'Дайын',notReady:'Әлі дайын емес',
+needGoggles:'Алдымен виртуалды қорғаныш көзілдірігін таңдаңыз.',gogglesDone:'Қауіпсіздік шарты орындалды. Енді виртуалды жылу көзін қосуға болады.',
+burnerStarted:'Виртуалды жылу көзі қосылды.',burnerStopped:'Виртуалды жылу көзі өшірілді.',
+selected:'Үлгі таңдалды',loopLoaded:'Виртуалды ілмекке үлгі белгіленді.',loopBusy:'Келесі үлгіге дейін виртуалды ілмекті қалпына келтіріңіз.',
+tested:'Үлгі зерттелді. Жалын түсін бақылау кестесіне енгізіңіз.',resetDone:'Виртуалды ілмек CLEAN күйіне қайтарылды.',
+needSelect:'Алдымен үлгіні таңдаңыз.',needBurner:'Алдымен виртуалды жылу көзін қосыңыз.',needLoad:'Алдымен виртуалды үлгіні ілмекке белгілеңіз.',
+allTested:'Барлық 7 үлгі зерттелді. «Белгісіз үлгі» режимі ашылды.',
+tableResult:'Кесте нәтижесі',unknownLocked:'Алдымен 7 үлгінің барлығын зерттеңіз.',unknownStarted:'Белгісіз үлгі 3D үстелде пайда болды. Оның формуласын көрмей зерттеңіз.',
+unknownNeedObserve:'Белгісіз үлгіні алдымен виртуалды жалында бақылаңыз.',correct:'Дұрыс!',wrong:'Қате. Қайта байқап көріңіз.',
+explainCorrect:'Дұрыс: түс электрондардың энергетикалық деңгейлер арасындағы ауысуына байланысты.',explainWrong:'Қайта ойлаңыз: негізгі себеп электрондардың энергетикалық ауысуы.',
+saved:'Қорытынды сақталды.',fillConclusion:'Үш қорытынды сөйлемді де толтырыңыз.',
+excellent:'Өте жақсы',goodLevel:'Жақсы',repeatSome:'Кейбір бөлімдерді қайталаңыз',repeatMore:'Тақырыпты қайта қарау ұсынылады',
+recExcellent:'Сіз жалын түсі бойынша катиондарды сенімді ажыраттыңыз.',recGood:'Қате болған катиондардың жалын түстерін қайта салыстырыңыз.',recSome:'Алдымен 7 үлгінің түстерін катиондармен қайта сәйкестендіріңіз.',recMore:'Виртуалды тәжірибені қадам бойынша қайта орындаңыз.',
+step1:'1-қадам. Қауіпсіздік',step1t:'Виртуалды қорғаныш көзілдірігін таңдаңыз.',
+step2:'2-қадам. Үлгіні таңдау',step2t:'3D банкілердің бірін басып, үлгіні таңдаңыз.',
+step3:'3-қадам. Ілмекке белгілеу',step3t:'Виртуалды ілмекті үлгі аймағына апарыңыз немесе балама батырманы пайдаланыңыз.',
+step4:'4-қадам. Виртуалды бақылау',step4t:'Ілмекті виртуалды жалын аймағына апарыңыз.',
+step5:'5-қадам. Түсті анықтау',step5t:'Бақылаған жалын түсін кестеден таңдаңыз.',
+step6:'6-қадам. Катионды анықтау',step6t:'Жалын түсіне сәйкес катионды таңдаңыз.',
+step7:'7-қадам. Келесі үлгі',step7t:'Ілмекті CLEAN күйіне қайтарып, келесі үлгіге өтіңіз.',
+colors:{crimson:'кармин-қызыл',yellow:'ашық сары',lilac:'күлгін-сирень',brick:'кірпіш-қызыл',scarlet:'алқызыл',apple:'сары-жасыл',bluegreen:'көк-жасыл'},
+explainOptions:['— таңдаңыз —','Кездейсоқ түс өзгереді','Электрондар энергия жұтып, кейін төменгі деңгейге қайтқанда жарық шығарады','Тек тұздың массасына байланысты']
+},
+ru:{
+title:'Лабораторная работа №3',
+topic:'Определение катионов Li⁺, Na⁺, K⁺, Ca²⁺, Sr²⁺, Ba²⁺, Cu²⁺ по изменению окраски пламени',
+subtitle:'Интерактивная 3D-виртуальная лаборатория',
+b1:'3D-лаборатория',b2:'7 виртуальных образцов',b3:'Масштаб 50–200%',b4:'10 баллов',
+virtualOnly:'Это только виртуальная симуляция. Она не содержит инструкций по работе с реальным открытым пламенем или реальными химическими веществами.',
+progress:'Прогресс',descriptorsTitle:'Критерии оценивания и дескрипторы',criterion:'Критерий',descriptor:'Дескриптор',points:'Балл',
+d1c:'Соблюдает виртуальную безопасность',d1:'Выбирает защитные очки и запускает симуляцию в безопасном режиме.',
+d2c:'Исследует образцы',d2:'Исследует 7 виртуальных образцов и наблюдает цвет пламени.',
+d3c:'Определяет цвет пламени',d3:'Правильно выбирает характерные цвета катионов.',
+d4c:'Соотносит цвет и катион',d4:'Правильно сопоставляет Li⁺, Na⁺, K⁺, Ca²⁺, Sr²⁺, Ba²⁺, Cu²⁺.',
+d5c:'Определяет неизвестный образец',d5:'Определяет неизвестный катион по виртуальному цвету пламени.',
+d6c:'Объясняет явление',d6:'Связывает появление цвета с энергетическими переходами электронов.',
+d7c:'Формулирует вывод',d7:'Формулирует научный вывод по результатам.',total:'Итого',
+sceneTitle:'3D-виртуальная лаборатория',safety:'Виртуальная безопасность',wearGoggles:'🥽 Надеть очки',gogglesOn:'🥽 Очки ✓',
+burner:'Виртуальный источник нагрева',burnerOn:'🔥 Включить',burnerOff:'⏹ Выключить',scale:'Масштаб',camera:'Камера',resetCamera:'Сбросить камеру',
+loadSelected:'Загрузить выбранный виртуальный образец на петлю',moveToFlame:'Переместить петлю в зону виртуального пламени',resetLoop:'Сбросить виртуальную петлю',
+sceneHint:'В 3D-сцене: нажмите на баночку; перетаскивайте петлю по столу; вращайте камеру мышью. На телефоне управляйте объектом касанием, а камерой — по свободной области.',
+stepsTitle:'Пошаговый режим',selectedTitle:'Выбранный образец',formula:'Формула',cation:'Катион',loopState:'Состояние петли',selectJar:'Сначала выберите одну из 3D-баночек.',
+obsTitle:'Таблица наблюдений',obsInfo:'Строка образца становится активной только после виртуального наблюдения в зоне пламени.',
+salt:'Соль',observed:'Исследован',observedColor:'Наблюдаемый цвет',identifiedCation:'Определённый катион',checkTable:'Проверить таблицу',
+unknownTitle:'Режим «Неизвестный образец»',unknownInfo:'Режим открывается после исследования всех 7 образцов. Определите катион по цвету, не видя формулу.',
+startUnknown:'Начать неизвестный образец',check:'Проверить',
+whyTitle:'Почему меняется цвет?',showExplanation:'Показать объяснение на уровне частиц',
+p1:'Катион металла',p2:'Поглощение энергии',p3:'Электрон переходит в возбуждённое состояние',p4:'Электрон возвращается на более низкий уровень',p5:'Испускается свет определённой длины волны',p6:'Появляется наблюдаемый цвет пламени',
+explainText:'У разных катионов металлов различаются энергетические уровни, поэтому при возвращении электронов испускается свет разных характерных цветов.',
+explainQuestion:'Выберите правильное объяснение появления окраски пламени.',
+conclusionTitle:'Вывод — 1 балл',c1:'Катионы металлов можно определять по ...',c2:'Каждый катион придаёт пламени ... цвет.',c3:'Это явление связано с ... электронов.',save:'Сохранить',
+resultTitle:'Результат',percent:'Процент',testedSamples:'Исследовано',errors:'Ошибки',showErrors:'Посмотреть ошибки',download:'Скачать результат',print:'Распечатать',restart:'Повторить',
+finishTitle:'Завершение работы',finishInfo:'После выполнения разделов рассчитайте итоговый результат из 10 баллов.',finish:'Завершить лабораторную работу',
+footer:'Все 3D-объекты созданы процедурно с помощью Three.js; платные 3D-ассеты не используются. Это только виртуальная учебная симуляция.',
+choose:'— выберите —',yes:'Да',no:'Нет',ready:'Готово',notReady:'Пока не готово',
+needGoggles:'Сначала выберите виртуальные защитные очки.',gogglesDone:'Условие безопасности выполнено. Теперь можно включить виртуальный источник.',
+burnerStarted:'Виртуальный источник нагрева включён.',burnerStopped:'Виртуальный источник нагрева выключен.',
+selected:'Образец выбран',loopLoaded:'Виртуальный образец отмечен на петле.',loopBusy:'Перед следующим образцом сбросьте виртуальную петлю.',
+tested:'Образец исследован. Внесите цвет пламени в таблицу.',resetDone:'Виртуальная петля возвращена в состояние CLEAN.',
+needSelect:'Сначала выберите образец.',needBurner:'Сначала включите виртуальный источник нагрева.',needLoad:'Сначала загрузите виртуальный образец на петлю.',
+allTested:'Все 7 образцов исследованы. Режим «Неизвестный образец» открыт.',
+tableResult:'Результат таблицы',unknownLocked:'Сначала исследуйте все 7 образцов.',unknownStarted:'Неизвестный образец появился на 3D-столе. Исследуйте его, не видя формулу.',
+unknownNeedObserve:'Сначала исследуйте неизвестный образец в виртуальном пламени.',correct:'Верно!',wrong:'Неверно. Попробуйте ещё раз.',
+explainCorrect:'Верно: окраска связана с переходами электронов между энергетическими уровнями.',explainWrong:'Подумайте ещё раз: ключевая причина — энергетические переходы электронов.',
+saved:'Вывод сохранён.',fillConclusion:'Заполните все три предложения.',
+excellent:'Отлично',goodLevel:'Хорошо',repeatSome:'Повторите отдельные разделы',repeatMore:'Рекомендуется повторить тему',
+recExcellent:'Вы уверенно различаете катионы по цвету виртуального пламени.',recGood:'Повторите цвета пламени тех катионов, где были ошибки.',recSome:'Сначала повторно сопоставьте цвета семи образцов с катионами.',recMore:'Повторите виртуальный опыт по шагам.',
+step1:'Шаг 1. Безопасность',step1t:'Выберите виртуальные защитные очки.',
+step2:'Шаг 2. Выбор образца',step2t:'Нажмите на одну из 3D-баночек.',
+step3:'Шаг 3. Загрузка на петлю',step3t:'Переместите виртуальную петлю в область образца или используйте альтернативную кнопку.',
+step4:'Шаг 4. Виртуальное наблюдение',step4t:'Переместите петлю в область виртуального пламени.',
+step5:'Шаг 5. Определение цвета',step5t:'Выберите наблюдаемый цвет в таблице.',
+step6:'Шаг 6. Определение катиона',step6t:'Выберите катион, соответствующий цвету.',
+step7:'Шаг 7. Следующий образец',step7t:'Верните петлю в состояние CLEAN и переходите к следующему образцу.',
+colors:{crimson:'карминово-красный',yellow:'ярко-жёлтый',lilac:'лилово-фиолетовый',brick:'кирпично-красный',scarlet:'алый',apple:'жёлто-зелёный',bluegreen:'сине-зелёный'},
+explainOptions:['— выберите —','Цвет меняется случайно','Электроны поглощают энергию, а при возврате на более низкий уровень испускают свет','Зависит только от массы соли']
+}};
+
+let lang='kz';
+const salts=[
+{id:'li',formula:'LiCl',cation:'Li⁺',colorKey:'crimson',hex:0xdc143c},
+{id:'na',formula:'NaCl',cation:'Na⁺',colorKey:'yellow',hex:0xffd400},
+{id:'k',formula:'KCl',cation:'K⁺',colorKey:'lilac',hex:0xb98ad8},
+{id:'ca',formula:'CaCl₂',cation:'Ca²⁺',colorKey:'brick',hex:0xff653a},
+{id:'sr',formula:'SrCl₂',cation:'Sr²⁺',colorKey:'scarlet',hex:0xff2400},
+{id:'ba',formula:'BaCl₂',cation:'Ba²⁺',colorKey:'apple',hex:0x9acd32},
+{id:'cu',formula:'CuCl₂',cation:'Cu²⁺',colorKey:'bluegreen',hex:0x00b89c}
+];
+const byId=Object.fromEntries(salts.map(s=>[s.id,s]));
+const state={
+safety:false,burner:false,selected:null,loopState:'CLEAN',loopSample:null,
+tested:new Set(),tableChecked:false,colorCorrect:0,cationCorrect:0,
+unknownActive:false,unknownId:null,unknownObserved:false,unknownCorrect:false,
+explanationCorrect:false,conclusion:false,errors:[],score:0
+};
+
+function tr(k){return T[lang][k]??k}
+function applyLanguage(){
+  document.documentElement.lang=lang==='kz'?'kk':'ru';
+  $$('[data-i]').forEach(el=>el.textContent=tr(el.dataset.i));
+  $('#kzBtn').classList.toggle('active',lang==='kz');$('#ruBtn').classList.toggle('active',lang==='ru');
+  $('#gogglesBtn').textContent=state.safety?tr('gogglesOn'):tr('wearGoggles');
+  $('#burnerBtn').textContent=state.burner?tr('burnerOff'):tr('burnerOn');
+  buildObservationTable(); buildUnknownOptions(); buildExplainOptions(); updateStep(); updateSelectedPanel(); updateSceneStatus();
+}
+$('#kzBtn').addEventListener('click',()=>{lang='kz';applyLanguage()});
+$('#ruBtn').addEventListener('click',()=>{lang='ru';applyLanguage()});
+
+// ---------- UI tables ----------
+function colorOptions(selected=''){
+  return `<option value="">${tr('choose')}</option>`+salts.map(s=>`<option value="${s.colorKey}" ${selected===s.colorKey?'selected':''}>${tr('colors')[s.colorKey]}</option>`).join('');
+}
+function cationOptions(selected=''){
+  return `<option value="">${tr('choose')}</option>`+salts.map(s=>`<option value="${s.id}" ${selected===s.id?'selected':''}>${s.cation}</option>`).join('');
+}
+function buildObservationTable(){
+  const old={};
+  $$('#obsBody tr').forEach(r=>{old[r.dataset.id]={c:r.querySelector('.colorSel')?.value||'',i:r.querySelector('.catSel')?.value||''}});
+  $('#obsBody').innerHTML=salts.map((s,i)=>{
+    const enabled=state.tested.has(s.id);
+    return `<tr data-id="${s.id}">
+      <td>${i+1}</td><td>${s.formula}</td><td>${s.cation}</td>
+      <td>${enabled?'✅':'○'}</td>
+      <td><select class="colorSel" ${enabled?'':'disabled'}>${colorOptions(old[s.id]?.c||'')}</select></td>
+      <td><select class="catSel" ${enabled?'':'disabled'}>${cationOptions(old[s.id]?.i||'')}</select></td>
+    </tr>`;
+  }).join('');
+}
+function buildUnknownOptions(){
+  const old=$('#unknownAnswer').value;
+  $('#unknownAnswer').innerHTML=cationOptions(old);
+}
+function buildExplainOptions(){
+  const old=$('#explainAnswer').value;
+  $('#explainAnswer').innerHTML=tr('explainOptions').map((x,i)=>`<option value="${i}" ${String(i)===old?'selected':''}>${x}</option>`).join('');
+}
+$('#checkTable').addEventListener('click',()=>{
+  let cc=0,ic=0;
+  $$('#obsBody tr').forEach(r=>{
+    const s=byId[r.dataset.id];
+    if(r.querySelector('.colorSel').value===s.colorKey)cc++;
+    if(r.querySelector('.catSel').value===s.id)ic++;
+  });
+  state.colorCorrect=cc;state.cationCorrect=ic;state.tableChecked=true;
+  const box=$('#tableStatus');box.classList.remove('hidden');
+  box.className='status '+((cc>=5&&ic>=5)?'good':'warn');
+  box.textContent=`${tr('tableResult')}: ${lang==='kz'?'түстер':'цвета'} ${cc}/7, ${lang==='kz'?'катиондар':'катионы'} ${ic}/7`;
+  updateProgress();
+});
+
+// ---------- 3D scene ----------
+const container=$('#scene3d');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xddeeed);
+scene.fog=new THREE.Fog(0xddeeed,16,28);
+
+const camera=new THREE.PerspectiveCamera(45,1,.1,100);
+const initialCamera=new THREE.Vector3(10,9,13);
+camera.position.copy(initialCamera);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.8));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,.5,0);
+controls.enableDamping=true;
+controls.minDistance=6;
+controls.maxDistance=24;
+controls.maxPolarAngle=Math.PI/2.05;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x58726e,1.35));
+const key=new THREE.DirectionalLight(0xffffff,1.25);key.position.set(5,10,7);key.castShadow=true;key.shadow.mapSize.set(1024,1024);scene.add(key);
+const fill=new THREE.DirectionalLight(0xbde8ff,.45);fill.position.set(-6,5,-5);scene.add(fill);
+
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(32,24),new THREE.MeshStandardMaterial({color:0xcbdedb,roughness:.9}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-.28;floor.receiveShadow=true;scene.add(floor);
+
+const tableMat=new THREE.MeshStandardMaterial({color:0xf2f4ee,roughness:.7,metalness:.03});
+const table=new THREE.Mesh(new THREE.BoxGeometry(12,.45,7),tableMat);table.position.y=0;table.castShadow=true;table.receiveShadow=true;scene.add(table);
+for(const x of [-5.3,5.3])for(const z of [-2.6,2.6]){
+  const leg=new THREE.Mesh(new THREE.BoxGeometry(.38,3.2,.38),new THREE.MeshStandardMaterial({color:0x7f9695,metalness:.5,roughness:.4}));
+  leg.position.set(x,-1.8,z);leg.castShadow=true;scene.add(leg);
+}
+
+function textSprite(text,bg='#ffffff',fg='#173d44',scale=1){
+  const c=document.createElement('canvas');c.width=512;c.height=150;
+  const ctx=c.getContext('2d');ctx.fillStyle=bg;ctx.fillRect(0,0,c.width,c.height);
+  ctx.strokeStyle='#7ba9a2';ctx.lineWidth=7;ctx.strokeRect(4,4,c.width-8,c.height-8);
+  ctx.fillStyle=fg;ctx.font='bold 58px Segoe UI,Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,256,75);
+  const tx=new THREE.CanvasTexture(c);tx.colorSpace=THREE.SRGBColorSpace;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true}));
+  sp.scale.set(1.6*scale,.47*scale,1);return sp;
+}
+
+const selectables=[];
+function register(group,action,data={}){
+  group.traverse(o=>{
+    if(o.isMesh){
+      o.userData.action=action;
+      Object.assign(o.userData,data);
+      selectables.push(o);
+    }
+  });
+}
+
+const jarGroups={};
+function createJar(s,x,z){
+  const g=new THREE.Group();g.position.set(x,.62,z);
+  const glass=new THREE.MeshPhysicalMaterial({color:0xd9ffff,transparent:true,opacity:.34,roughness:.12,metalness:0,clearcoat:1});
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.43,.5,.9,28),glass);body.castShadow=true;g.add(body);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.26,.31,.22,24),glass);neck.position.y=.56;g.add(neck);
+  const lid=new THREE.Mesh(new THREE.CylinderGeometry(.33,.33,.16,24),new THREE.MeshStandardMaterial({color:0x9aa6a8,metalness:.6,roughness:.3}));lid.position.y=.74;g.add(lid);
+  const crystals=new THREE.Group();
+  const cm=new THREE.MeshStandardMaterial({color:s.id==='cu'?0x78c9b8:0xf6f6f1,roughness:.7});
+  for(let i=0;i<16;i++){
+    const m=new THREE.Mesh(new THREE.OctahedronGeometry(.08+Math.random()*.04),cm);
+    const a=Math.random()*Math.PI*2,r=Math.random()*.33;
+    m.position.set(Math.cos(a)*r,-.32+Math.random()*.32,Math.sin(a)*r);m.rotation.set(Math.random(),Math.random(),Math.random());crystals.add(m);
+  }
+  g.add(crystals);
+  const lab=textSprite(s.formula);lab.position.set(0,.05,.51);g.add(lab);
+  scene.add(g);jarGroups[s.id]=g;register(g,'jar',{saltId:s.id});
+}
+const positions=[[-4.5,-1.8],[-3,-1.8],[-1.5,-1.8],[0,-1.8],[1.5,-1.8],[3,-1.8],[4.5,-1.8]];
+salts.forEach((s,i)=>createJar(s,...positions[i]));
+
+// burner
+const burner=new THREE.Group();burner.position.set(0,.38,1.05);
+const base=new THREE.Mesh(new THREE.CylinderGeometry(.62,.75,.28,32),new THREE.MeshStandardMaterial({color:0x546a6e,metalness:.72,roughness:.3}));base.castShadow=true;burner.add(base);
+const tube=new THREE.Mesh(new THREE.CylinderGeometry(.19,.24,1.15,28),new THREE.MeshStandardMaterial({color:0x89999b,metalness:.75,roughness:.25}));tube.position.y=.7;tube.castShadow=true;burner.add(tube);
+const collar=new THREE.Mesh(new THREE.CylinderGeometry(.31,.31,.18,28),new THREE.MeshStandardMaterial({color:0x697b7d,metalness:.7,roughness:.28}));collar.position.y=1.23;burner.add(collar);
+scene.add(burner);register(base,'burner');
+
+// flame 3 zones
+const flame=new THREE.Group();flame.position.set(0,1.92,1.05);
+function flameMesh(rad,h,col,op,y){
+  const m=new THREE.Mesh(new THREE.ConeGeometry(rad,h,24),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+  m.position.y=y;return m;
+}
+const fOuter=flameMesh(.38,1.25,0x50bfff,.23,.16);
+const fMain=flameMesh(.27,1.0,0x33aaff,.43,.05);
+const fInner=flameMesh(.14,.62,0xbdf5ff,.68,-.08);
+flame.add(fOuter,fMain,fInner);
+const particleGeom=new THREE.BufferGeometry();
+const pcount=90,parr=new Float32Array(pcount*3);
+for(let i=0;i<pcount;i++){const y=Math.random()*1.2-.35,rr=(1-(y+.35)/1.55)*.26*Math.random();const a=Math.random()*Math.PI*2;parr[i*3]=Math.cos(a)*rr;parr[i*3+1]=y;parr[i*3+2]=Math.sin(a)*rr;}
+particleGeom.setAttribute('position',new THREE.BufferAttribute(parr,3));
+const particles=new THREE.Points(particleGeom,new THREE.PointsMaterial({color:0x77d8ff,size:.035,transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false}));
+flame.add(particles);flame.visible=false;scene.add(flame);
+
+// stand
+const stand=new THREE.Group();stand.position.set(-4.7,.42,2.2);
+const standBase=new THREE.Mesh(new THREE.BoxGeometry(1.4,.16,.8),new THREE.MeshStandardMaterial({color:0x454f52,metalness:.7,roughness:.38}));stand.add(standBase);
+const rod=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,2.3,14),new THREE.MeshStandardMaterial({color:0x888f91,metalness:.8,roughness:.22}));rod.position.set(0,1.16,0);stand.add(rod);
+const ring=new THREE.Mesh(new THREE.TorusGeometry(.47,.045,12,32),new THREE.MeshStandardMaterial({color:0x6e7779,metalness:.75,roughness:.28}));ring.rotation.x=Math.PI/2;ring.position.set(.35,1.45,0);stand.add(ring);scene.add(stand);
+
+// goggles
+const goggles=new THREE.Group();goggles.position.set(-2.7,.48,2.25);
+const frameMat=new THREE.MeshStandardMaterial({color:0x2873a7,metalness:.18,roughness:.35});
+const lensMat=new THREE.MeshPhysicalMaterial({color:0xa8ddff,transparent:true,opacity:.4,roughness:.08,clearcoat:1});
+[-.38,.38].forEach(x=>{
+ const fr=new THREE.Mesh(new THREE.TorusGeometry(.28,.055,12,28),frameMat);fr.scale.y=.72;fr.position.x=x;goggles.add(fr);
+ const ln=new THREE.Mesh(new THREE.CircleGeometry(.23,28),lensMat);ln.position.set(x,0,.02);goggles.add(ln);
+});
+const bridge=new THREE.Mesh(new THREE.BoxGeometry(.28,.06,.06),frameMat);goggles.add(bridge);
+goggles.rotation.x=-Math.PI/2;scene.add(goggles);register(goggles,'goggles');
+
+// cleaner
+const cleaner=new THREE.Group();cleaner.position.set(4.7,.45,2.25);
+const bowl=new THREE.Mesh(new THREE.CylinderGeometry(.55,.43,.65,28,1,true),new THREE.MeshPhysicalMaterial({color:0xb6eeee,transparent:true,opacity:.45,roughness:.1,side:THREE.DoubleSide}));bowl.position.y=.08;cleaner.add(bowl);
+const rim=new THREE.Mesh(new THREE.TorusGeometry(.54,.035,10,30),new THREE.MeshStandardMaterial({color:0x78999a,metalness:.45,roughness:.3}));rim.rotation.x=Math.PI/2;rim.position.y=.39;cleaner.add(rim);
+const cleanLabel=textSprite('RESET','#e8fffb','#176d63',.8);cleanLabel.position.set(0,.92,0);cleaner.add(cleanLabel);scene.add(cleaner);register(cleaner,'cleaner');
+
+// loop
+const loop=new THREE.Group();loop.position.set(-1.4,.78,2.1);
+const handle=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,1.35,18),new THREE.MeshStandardMaterial({color:0x31494e,roughness:.55}));handle.rotation.z=Math.PI/2;handle.position.x=-.58;handle.castShadow=true;loop.add(handle);
+const wireMat=new THREE.MeshStandardMaterial({color:0xb6b8bb,metalness:.9,roughness:.2});
+const wire=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,1.35,10),wireMat);wire.rotation.z=Math.PI/2;wire.position.x=.75;loop.add(wire);
+const tip=new THREE.Mesh(new THREE.TorusGeometry(.13,.022,8,26),wireMat);tip.rotation.y=Math.PI/2;tip.position.x=1.46;loop.add(tip);
+const loadedCrystal=new THREE.Mesh(new THREE.OctahedronGeometry(.09),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0x000000,roughness:.5}));loadedCrystal.position.set(1.46,.02,0);loadedCrystal.visible=false;loop.add(loadedCrystal);
+scene.add(loop);register(loop,'loop');
+const loopTip=new THREE.Object3D();loopTip.position.set(1.46,0,0);loop.add(loopTip);
+
+// unknown jar
+const unknownSalt={id:'unknown',formula:'UNKNOWN',cation:'?',colorKey:'',hex:0xffffff};
+const unknownJar=new THREE.Group();unknownJar.position.set(4.7,.62,.65);unknownJar.visible=false;
+{
+ const glass=new THREE.MeshPhysicalMaterial({color:0xe5f7f7,transparent:true,opacity:.34,roughness:.1,clearcoat:1});
+ const b=new THREE.Mesh(new THREE.CylinderGeometry(.43,.5,.9,28),glass);unknownJar.add(b);
+ const lid=new THREE.Mesh(new THREE.CylinderGeometry(.33,.33,.16,24),new THREE.MeshStandardMaterial({color:0x333b3d,metalness:.6,roughness:.3}));lid.position.y=.74;unknownJar.add(lid);
+ const lab=textSprite('UNKNOWN','#263638','#ffffff',.9);lab.position.set(0,.04,.51);unknownJar.add(lab);
+ scene.add(unknownJar);register(unknownJar,'unknown');
+}
+
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.78);
+let dragging=false,hovered=null;
+
+function pointerNDC(e){
+ const r=renderer.domElement.getBoundingClientRect();
+ pointer.x=((e.clientX-r.left)/r.width)*2-1;
+ pointer.y=-((e.clientY-r.top)/r.height)*2+1;
+ raycaster.setFromCamera(pointer,camera);
+}
+function firstPick(e){
+ pointerNDC(e);return raycaster.intersectObjects(selectables,false)[0]?.object||null;
+}
+renderer.domElement.addEventListener('pointermove',e=>{
+ if(dragging){
+   pointerNDC(e);const p=new THREE.Vector3();
+   if(raycaster.ray.intersectPlane(dragPlane,p)){
+     loop.position.x=THREE.MathUtils.clamp(p.x,-5.2,5.2);
+     loop.position.z=THREE.MathUtils.clamp(p.z,-2.75,2.75);
+   }
+   return;
+ }
+ const o=firstPick(e);renderer.domElement.style.cursor=o?'pointer':'grab';
+ hovered=o;
+});
+renderer.domElement.addEventListener('pointerdown',e=>{
+ const o=firstPick(e);if(!o)return;
+ const action=o.userData.action;
+ if(action==='loop'){dragging=true;controls.enabled=false;renderer.domElement.setPointerCapture(e.pointerId);}
+ else if(action==='jar'){selectSalt(o.userData.saltId);}
+ else if(action==='goggles'){setSafety();}
+ else if(action==='burner'){toggleBurner();}
+ else if(action==='cleaner'){resetLoop();}
+});
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(dragging){
+   dragging=false;controls.enabled=true;
+   tryLoopZones();
+   try{renderer.domElement.releasePointerCapture(e.pointerId)}catch{}
+ }
+});
+
+function xzDistance(obj,point){
+ const p=new THREE.Vector3();obj.getWorldPosition(p);
+ return Math.hypot(p.x-point.x,p.z-point.z);
+}
+function tryLoopZones(){
+ const tipPos=new THREE.Vector3();loopTip.getWorldPosition(tipPos);
+ if(Math.hypot(tipPos.x-cleaner.position.x,tipPos.z-cleaner.position.z)<.85){resetLoop();return;}
+ if(state.unknownActive&&unknownJar.visible&&Math.hypot(tipPos.x-unknownJar.position.x,tipPos.z-unknownJar.position.z)<.82){
+   if(state.loopState==='CLEAN'){loadUnknown();}else sceneMessage(tr('loopBusy'),'warn');return;
+ }
+ for(const s of salts){
+   const g=jarGroups[s.id],p=new THREE.Vector3();g.getWorldPosition(p);
+   if(Math.hypot(tipPos.x-p.x,tipPos.z-p.z)<.78){
+     selectSalt(s.id);
+     if(state.loopState==='CLEAN')loadSample(s.id);else sceneMessage(tr('loopBusy'),'warn');
+     return;
+   }
+ }
+ const fp=new THREE.Vector3();flame.getWorldPosition(fp);
+ if(Math.hypot(tipPos.x-burner.position.x,tipPos.z-burner.position.z)<.78){
+   runFlameTest();
+ }
+}
+
+function selectSalt(id){
+ state.selected=id;
+ Object.entries(jarGroups).forEach(([k,g])=>g.scale.setScalar(k===id?1.1:1));
+ sceneMessage(`${tr('selected')}: ${byId[id].formula} (${byId[id].cation})`,'good');
+ updateSelectedPanel();updateStep();
+}
+function setSafety(){
+ state.safety=true;$('#gogglesBtn').textContent=tr('gogglesOn');sceneMessage(tr('gogglesDone'),'good');updateStep();updateProgress();
+}
+function toggleBurner(){
+ if(!state.burner){
+   if(!state.safety){sceneMessage(tr('needGoggles'),'warn');return;}
+   state.burner=true;flame.visible=true;setFlameNormal();sceneMessage(tr('burnerStarted'),'good');
+ }else{
+   state.burner=false;flame.visible=false;sceneMessage(tr('burnerStopped'),'');
+ }
+ $('#burnerBtn').textContent=state.burner?tr('burnerOff'):tr('burnerOn');updateStep();updateProgress();
+}
+function loadSample(id){
+ if(!state.selected)state.selected=id;
+ if(state.loopState!=='CLEAN'){sceneMessage(tr('loopBusy'),'warn');return;}
+ state.loopState='LOADED';state.loopSample=id;loadedCrystal.visible=true;
+ loadedCrystal.material.color.set(id==='cu'?0x6bc8b4:0xf9f6ee);
+ sceneMessage(tr('loopLoaded'),'good');updateSelectedPanel();updateStep();
+}
+function loadUnknown(){
+ if(!state.unknownActive)return;
+ state.loopState='LOADED';state.loopSample='unknown';loadedCrystal.visible=true;loadedCrystal.material.color.set(0xf4f4f0);
+ sceneMessage(tr('loopLoaded'),'good');updateSelectedPanel();updateStep();
+}
+function runFlameTest(){
+ if(!state.burner){sceneMessage(tr('needBurner'),'warn');return;}
+ if(state.loopState!=='LOADED'){sceneMessage(tr('needLoad'),'warn');return;}
+ let s;
+ if(state.loopSample==='unknown'){s=byId[state.unknownId];state.unknownObserved=true;}
+ else{s=byId[state.loopSample];state.tested.add(s.id);}
+ state.loopState='TESTED';setFlameColor(s.hex);
+ sceneMessage(`${tr('tested')} ${s.cation} → ${tr('colors')[s.colorKey]}`,'good');
+ buildObservationTable();updateSelectedPanel();updateStep();updateProgress();
+ if(state.tested.size===7){$('#startUnknown').disabled=false;$('#unknownStatus').textContent=tr('allTested');$('#unknownStatus').className='status good';}
+ clearTimeout(window.__flameTimer);window.__flameTimer=setTimeout(()=>{if(state.burner)setFlameNormal()},2600);
+}
+function resetLoop(){
+ state.loopState='CLEAN';state.loopSample=null;loadedCrystal.visible=false;loop.position.set(-1.4,.78,2.1);if(state.burner)setFlameNormal();
+ sceneMessage(tr('resetDone'),'good');updateSelectedPanel();updateStep();updateProgress();
+}
+
+function setFlameNormal(){setFlameColor(0x48bdf2);}
+function setFlameColor(hex){
+ [fOuter,fMain,fInner].forEach((m,i)=>{m.material.color.setHex(i===2?lighten(hex,.45):hex)});
+ particles.material.color.setHex(hex);
+}
+function lighten(hex,amount){
+ const c=new THREE.Color(hex);c.lerp(new THREE.Color(0xffffff),amount);return c.getHex();
+}
+
+function sceneMessage(msg,type=''){
+ const b=$('#sceneStatus');b.className='status '+type;b.textContent=msg;
+}
+function updateSceneStatus(){
+ if(!state.safety)sceneMessage(tr('needGoggles'),'warn');
+ else if(!state.selected)sceneMessage(tr('selectJar'),'');
+}
+function updateSelectedPanel(){
+ const s=state.selected?byId[state.selected]:null;
+ $('#selectedFormula').textContent=s?s.formula:'—';
+ $('#selectedCation').textContent=s?s.cation:'—';
+ $('#loopStateText').textContent=state.loopState;
+ $('#loopBadge').textContent=`Loop: ${state.loopState}`;
+}
+function updateStep(){
+ let n=1,title=tr('step1'),text=tr('step1t');
+ if(state.safety){n=2;title=tr('step2');text=tr('step2t')}
+ if(state.selected){n=3;title=tr('step3');text=tr('step3t')}
+ if(state.loopState==='LOADED'){n=4;title=tr('step4');text=tr('step4t')}
+ if(state.loopState==='TESTED'){n=5;title=tr('step5');text=tr('step5t')}
+ if(state.tableChecked){n=6;title=tr('step6');text=tr('step6t')}
+ if(state.loopState==='TESTED'&&state.tested.size<7){n=7;title=tr('step7');text=tr('step7t')}
+ $('#stepNum').textContent=`${n}/7`;$('#stepTitle').textContent=title;$('#stepText').textContent=text;
+}
+
+$('#gogglesBtn').addEventListener('click',setSafety);
+$('#burnerBtn').addEventListener('click',toggleBurner);
+$('#resetCamera').addEventListener('click',()=>{camera.position.copy(initialCamera);controls.target.set(0,.5,0);controls.update();$('#scaleSlider').value=100;$('#scaleVal').textContent='100%'});
+$('#scaleSlider').addEventListener('input',e=>{
+ const value=+e.target.value;$('#scaleVal').textContent=value+'%';
+ const dir=camera.position.clone().sub(controls.target).normalize();
+ const dist=THREE.MathUtils.clamp(13*(100/value),6,24);
+ camera.position.copy(controls.target.clone().add(dir.multiplyScalar(dist)));controls.update();
+});
+$('#loadSelectedBtn').addEventListener('click',()=>{if(!state.selected){sceneMessage(tr('needSelect'),'warn');return}loadSample(state.selected)});
+$('#testSelectedBtn').addEventListener('click',()=>{runFlameTest()});
+$('#cleanLoopBtn').addEventListener('click',resetLoop);
+
+// Unknown mode
+function randomSaltId(){return salts[Math.floor(Math.random()*salts.length)].id}
+$('#startUnknown').addEventListener('click',()=>{
+ if(state.tested.size<7){$('#unknownStatus').textContent=tr('unknownLocked');$('#unknownStatus').className='status warn';return}
+ state.unknownId=randomSaltId();state.unknownActive=true;state.unknownObserved=false;state.unknownCorrect=false;unknownJar.visible=true;
+ $('#unknownAnswer').disabled=false;$('#checkUnknown').disabled=false;$('#unknownStatus').textContent=tr('unknownStarted');$('#unknownStatus').className='status good';
+ resetLoop();updateProgress();
+});
+$('#checkUnknown').addEventListener('click',()=>{
+ if(!state.unknownObserved){$('#unknownStatus').textContent=tr('unknownNeedObserve');$('#unknownStatus').className='status warn';return}
+ const ok=$('#unknownAnswer').value===state.unknownId;state.unknownCorrect=ok;
+ $('#unknownStatus').textContent=ok?tr('correct'):tr('wrong');$('#unknownStatus').className='status '+(ok?'good':'bad');updateProgress();
+});
+
+// Explanation
+$('#whyBtn').addEventListener('click',()=>$('#whyPanel').classList.toggle('hidden'));
+$('#checkExplain').addEventListener('click',()=>{
+ const ok=$('#explainAnswer').value==='2';state.explanationCorrect=ok;
+ const b=$('#explainStatus');b.classList.remove('hidden');b.className='status '+(ok?'good':'bad');b.textContent=ok?tr('explainCorrect'):tr('explainWrong');updateProgress();
+});
+
+// Conclusion
+$('#saveConclusion').addEventListener('click',()=>{
+ const vals=[$('#conc1').value.trim(),$('#conc2').value.trim(),$('#conc3').value.trim()];
+ state.conclusion=vals.every(v=>v.length>=5);
+ const b=$('#conclusionStatus');b.classList.remove('hidden');b.className='status '+(state.conclusion?'good':'warn');b.textContent=state.conclusion?tr('saved'):tr('fillConclusion');updateProgress();
+});
+
+// Score
+function calcScore(){
+ const safety=state.safety?1:0;
+ const research=state.tested.size===7?2:state.tested.size>=5?1:0;
+ const colors=state.colorCorrect===7?2:state.colorCorrect>=5?1:0;
+ const cations=state.cationCorrect===7?2:state.cationCorrect>=5?1:0;
+ const unknown=state.unknownCorrect?1:0;
+ const explain=state.explanationCorrect?1:0;
+ const concl=state.conclusion?1:0;
+ return safety+research+colors+cations+unknown+explain+concl;
+}
+function collectErrors(){
+ const e=[];
+ if(!state.safety)e.push(lang==='kz'?'Виртуалды қауіпсіздік шарты орындалмады.':'Не выполнено условие виртуальной безопасности.');
+ if(state.tested.size<7)e.push(lang==='kz'?`7 үлгінің ${state.tested.size}-еуі ғана зерттелді.`:`Исследовано только ${state.tested.size} из 7 образцов.`);
+ if(state.colorCorrect<7)e.push(lang==='kz'?`Жалын түстері: ${state.colorCorrect}/7 дұрыс.`:`Цвета пламени: ${state.colorCorrect}/7 верно.`);
+ if(state.cationCorrect<7)e.push(lang==='kz'?`Катиондар: ${state.cationCorrect}/7 дұрыс.`:`Катионы: ${state.cationCorrect}/7 верно.`);
+ if(!state.unknownCorrect)e.push(lang==='kz'?'Белгісіз үлгі дұрыс анықталмады.':'Неизвестный образец не определён правильно.');
+ if(!state.explanationCorrect)e.push(lang==='kz'?'Энергетикалық ауысу түсіндірмесі толық емес.':'Объяснение энергетических переходов не зачтено.');
+ if(!state.conclusion)e.push(lang==='kz'?'Қорытынды толтырылмаған.':'Вывод не заполнен.');
+ return e;
+}
+$('#finishLab').addEventListener('click',()=>{
+ if(!state.tableChecked){$('#tableStatus').classList.remove('hidden');$('#tableStatus').className='status warn';$('#tableStatus').textContent=lang==='kz'?'Алдымен бақылау кестесін тексеріңіз.':'Сначала проверьте таблицу наблюдений.'}
+ state.score=calcScore();state.errors=collectErrors();
+ const pct=state.score*10;$('#scoreOut').textContent=state.score;$('#percentOut').textContent=pct+'%';$('#testedOut').textContent=state.tested.size+'/7';$('#errorsOut').textContent=state.errors.length;
+ let level,rec;if(state.score>=9){level=tr('excellent');rec=tr('recExcellent')}else if(state.score>=7){level=tr('goodLevel');rec=tr('recGood')}else if(state.score>=5){level=tr('repeatSome');rec=tr('recSome')}else{level=tr('repeatMore');rec=tr('recMore')}
+ $('#levelOut').innerHTML=`<strong>${level}</strong>`;$('#recommendation').innerHTML=`<p>${rec}</p>`;$('#resultCard').classList.remove('hidden');$('#resultCard').scrollIntoView({behavior:'smooth'});updateProgress();
+});
+$('#showErrors').addEventListener('click',()=>{
+ const b=$('#errorsBox');b.classList.remove('hidden');b.className='status '+(state.errors.length?'warn':'good');
+ b.innerHTML=state.errors.length?'<ol>'+state.errors.map(x=>`<li>${x}</li>`).join('')+'</ol>':tr('correct');
+});
+$('#downloadResult').addEventListener('click',()=>{
+ const text=[tr('title'),tr('topic'),'',`${tr('resultTitle')}: ${state.score}/10`,`${tr('testedSamples')}: ${state.tested.size}/7`,'',...state.errors].join('\n');
+ const blob=new Blob([text],{type:'text/plain;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=lang==='kz'?'jalyn_test_natizhe.txt':'flame_test_result.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1200);
+});
+$('#printResult').addEventListener('click',()=>window.print());
+$('#restart').addEventListener('click',()=>location.reload());
+
+function updateProgress(){
+ const flags=[state.safety,state.tested.size===7,state.tableChecked,state.unknownCorrect,state.explanationCorrect,state.conclusion];
+ const pct=Math.round(flags.filter(Boolean).length/flags.length*100);$('#progressFill').style.width=pct+'%';$('#progressText').textContent=pct+'%';
+}
+
+// animation / responsive
+const clock=new THREE.Clock();
+function animate(){
+ requestAnimationFrame(animate);controls.update();
+ const t=clock.getElapsedTime();
+ if(flame.visible){
+   fOuter.scale.set(1+.05*Math.sin(t*5),1+.08*Math.sin(t*7),1+.05*Math.cos(t*4));
+   fMain.scale.set(1+.04*Math.cos(t*6),1+.07*Math.sin(t*8+.5),1+.04*Math.sin(t*4));
+   fInner.scale.set(1+.03*Math.sin(t*8),1+.06*Math.cos(t*9),1+.03*Math.sin(t*5));
+   particles.rotation.y=t*.35;
+ }
+ renderer.render(scene,camera);
+}
+function resize(){
+ const r=container.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(container);resize();animate();
+
+applyLanguage();buildObservationTable();buildUnknownOptions();buildExplainOptions();updateSelectedPanel();updateStep();updateProgress();
+</script>
+</body>
+</html>
